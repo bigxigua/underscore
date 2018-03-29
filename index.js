@@ -1,5 +1,4 @@
 var root = this;
-
 var log = function(...content) {
 	console.log(...content)
 }
@@ -166,5 +165,35 @@ _.once = function (fn) {
 	}
 }
 
-var once = _.once(() => {log(1)})
-setInterval(once, 100)
+_.compose = function () {
+	var handles = Array.prototype.slice.call(arguments);
+	return function () {
+		if(handles.length == 0) return '';
+		if(handles.length == 1) return handles[0].apply(this, arguments);
+		var params = handles.pop().apply(this, arguments);
+		return arguments.callee(params)
+	}
+}
+
+_.curry = function (fn) {
+	var argsLength = fn.length;
+	var params = [];
+	return function () {
+		// if(arguments.length > 1) {
+		// 	log('params must one')
+		// }
+		params.push(arguments[0]);
+		if(params.length == argsLength) {
+			return arguments.callee.apply(this, params)
+		} else {
+			return arguments.callee;
+		}
+	}
+}
+
+var fn1 = function (a, b,c,d) {return a + b +c +d}
+var fn2 = function (b) {return b + 'bbb'}
+var fn3 = function (c) {return c + 'ccc'}
+// log(_.compose(fn1, fn2, fn3)(1))
+var a = _.curry(fn1)(1)(2)(3)(4)
+log(a)
