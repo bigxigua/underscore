@@ -141,9 +141,10 @@ _.throttle = function(fn, wait, immediately) {
 
 //函数防抖是指函数多次被触发时不执行，等待函数不被触发后过一定时间间隔后执行一次
 _.debunce = function(fn, wait, immediately) {
-	var timer = null, immediately = immediately;
+	var timer = null,
+		immediately = immediately;
 	return function() {
-		if(immediately) {
+		if (immediately) {
 			fn.apply(this, arguments);
 			immediately = false;
 		} else {
@@ -155,45 +156,165 @@ _.debunce = function(fn, wait, immediately) {
 	}
 }
 
-_.once = function (fn) {
+_.once = function(fn) {
 	var count = 0;
-	return function () {
-		if(count == 0) {
+	return function() {
+		if (count == 0) {
 			fn.apply(this, arguments);
 			count = 1;
 		}
 	}
 }
 
-_.compose = function () {
+_.compose = function() {
 	var handles = Array.prototype.slice.call(arguments);
-	return function () {
-		if(handles.length == 0) return '';
-		if(handles.length == 1) return handles[0].apply(this, arguments);
+	return function() {
+		if (handles.length == 0) return '';
+		if (handles.length == 1) return handles[0].apply(this, arguments);
 		var params = handles.pop().apply(this, arguments);
 		return arguments.callee(params)
 	}
 }
 
-_.curry = function (fn) {
+_.curry = function(fn) {
 	var argsLength = fn.length;
 	var params = [];
-	return function () {
-		// if(arguments.length > 1) {
-		// 	log('params must one')
-		// }
+	return function() {
+		if (arguments.length > 1 && params.length < argsLength) {
+			log('params must one')
+		}
 		params.push(arguments[0]);
-		if(params.length == argsLength) {
-			return arguments.callee.apply(this, params)
+		if (params.length == argsLength) {
+			return fn.apply(this, params)
 		} else {
 			return arguments.callee;
 		}
 	}
 }
 
-var fn1 = function (a, b,c,d) {return a + b +c +d}
-var fn2 = function (b) {return b + 'bbb'}
-var fn3 = function (c) {return c + 'ccc'}
+var fn1 = function(a, b, c, d) {
+	return a + b + c + d
+}
+var fn2 = function(b) {
+	return b + 'bbb'
+}
+var fn3 = function(c) {
+	return c + 'ccc'
+}
 // log(_.compose(fn1, fn2, fn3)(1))
-var a = _.curry(fn1)(1)(2)(3)(4)
-log(a)
+// var a = _.curry(fn1)(1)(2)(3)(4)
+var fs = require('fs');
+var promisify = require('util').promisify;
+var readFile = promisify(fs.readFile);
+
+var Promise = function(fn) {
+	var PENDDING = 0;
+	var FULFILLED = 1;
+	var REJECTED = 2;
+
+	var state = PENDDING,
+		handles = [],
+		value = null,
+		handle = null;
+
+	var fulfill = function(result) {
+		state = FULFILLED;
+		value = result;
+	}
+
+	var reject = function(err) {
+		state = REJECTED;
+		value = err;
+	}
+
+	var resolve = function(result) {
+		try {
+			var then = genThen(result);
+			if (then) {
+				doResolved(then.bind(result), resolve, reject)
+			} else {
+				fulfill(result)
+			}
+		} catch (e) {
+			reject(e)
+		}
+	}
+
+	var genThen = function(result) {
+		var typeResult = typeof result;
+		if (result && (typeResult == 'object' || typeResult == 'function')) {
+			var then = result.then;
+			if(typeof then === 'function') {
+				return then;
+			}
+		}
+		return null;
+	}
+
+	var doResolved = function(fn, onResloved, onRejected) {
+		//什么时候执行resolve/reject
+		try {
+			fn(function(result) {
+				onResloved(result)
+			}, function(error) {
+				onRejected(error)
+			})
+		} catch (e) {
+			onRejected(e)
+		}
+	}
+
+	var executeHandle = function (handler) {
+		if(state === PENDDING) {
+			handles.push(handler)
+		}
+		if(state === FULFILLED) {
+			handles.onResloved(value)
+		}
+		if(state === REJECTED) {
+			handles.onRejected(value)
+		}
+	}
+
+	this.done = function (onResloved, onRejected) {
+		// setTimeout()
+		executeHandle({
+			onResloved,
+			onRejected
+		})
+	}
+
+	this.then = function(onResloved, onRejected) {
+		var _me = this;
+		return new Promise((resolve, reject) => {
+			_me.done((result) => {
+				try{
+					resolve(onResloved(result))
+				}catch(e){
+					reject(e)
+				}
+			}, () => {
+
+			})
+		})
+	}
+	this.catch = function() {}
+
+	doResolved(fn, resolve, reject);
+
+}
+
+var promise = new Promise((resolve, reject) => {
+	resolve(readFile('./index.html'))
+}).then((d) => {
+	log(d, 'ddddd')
+})
+
+//Promise构造函数接受一个函数作为参数定义为fn
+//fn有两个函数参数 resolve和reject
+//resolve和reject的执行控制权在调用者手里
+//Promise实例有then方法
+//then方法接受同样一个函数thenHandle作为参数，并返回一个新的Promise实例
+//then里的函数会在上一个resolve时被执行
+// log(promise)
+//同步时then方法何时被调用
