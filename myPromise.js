@@ -99,3 +99,11 @@ new Promise((resolve, reject) => {
 }).then((d) => {
 	console.log('-----',d)
 })
+//Promise构造函数接受一个函数作为参数定义为fn
+//fn有两个函数参数 resolve和reject
+//resolve和reject的执行控制权在调用者手里
+//Promise实例有then方法
+//then方法接受同样一个函数thenHandle作为参数，并返回一个新的Promise实例
+//then里的函数会在上一个resolve时被执行
+// log(promise)
+//同步时then方法何时被调用
